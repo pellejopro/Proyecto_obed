@@ -13,23 +13,21 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
     if (empty($usuario) || empty($password)) {
         $error = "Por favor llena todos los campos.";
     } else {
-        $stmt = $conn->prepare("SELECT id, password, tipo FROM usuarios WHERE usuario = ?");
-        $stmt->bind_param("s",$usuario);
+        $stmt = $conn->prepare("SELECT id, password FROM usuarios WHERE usuario = ?");
+        $stmt->bind_param("s", $usuario);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows > 0) {
-            $stmt->bind_result($id,$hash_password,$tipo);
+            $stmt->bind_result($id, $hash_password);
             $stmt->fetch();
 
-            if (password_verify($password,$hash_password)) {
+            if (password_verify($password, $hash_password)) {
                 $_SESSION['id'] = $id;
                 $_SESSION['usuario'] = $usuario;
-                $_SESSION['tipo'] = $tipo;
 
-                header($tipo==='admin'
-                    ? "Location: admin_dashboard.php"
-                    : "Location: productos.php");
+                // Como ya no hay "tipo", mandamos siempre al mismo dashboard
+                header("Location: productos.php");
                 exit;
             } else {
                 $error = "Contraseña incorrecta.";
