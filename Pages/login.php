@@ -48,8 +48,8 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
     <title>Iniciar Sesión</title>
     <style>
         body {
-            background-color: #009C3B;
-            font-family: Arial, sans-serif;
+            background-color: #000;
+            font-family: Arial, Helvetica, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -58,16 +58,22 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
             color: #fff;
         }
         .login-container {
-            background: #002776;
+            background: #111;
             padding: 30px 40px;
             border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.9);
             width: 340px;
             text-align: center;
         }
         h2 {
-            color: #FFDF00;
+            font-size: 24px;
             margin-bottom: 20px;
+        }
+        h2 span {
+            background: #f90;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
             font-weight: bold;
         }
         input {
@@ -76,16 +82,16 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
             margin: 10px 0;
             border: none;
             border-radius: 6px;
-            background: #fff;
-            color: #002776;
+            background: #222;
+            color: #fff;
             font-size: 16px;
         }
         input::placeholder {
-            color: #666;
+            color: #888;
         }
         button {
-            background: #FFDF00;
-            color: #002776;
+            background: #f90;
+            color: #000;
             padding: 14px;
             width: 100%;
             border: none;
@@ -95,19 +101,20 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
             transition: background 0.3s ease;
         }
         button:hover {
-            background: #ffe766;
+            background: #ffa733;
         }
         .error {
-            color: #ffcccc;
+            color: #ff6b6b;
             margin-bottom: 15px;
             font-weight: bold;
         }
         p, a {
-            color: #fff;
+            color: #ccc;
         }
         a {
             font-weight: bold;
             text-decoration: none;
+            color: #f90;
         }
         a:hover {
             text-decoration: underline;
@@ -116,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
 </head>
 <body>
 <div class="login-container">
-    <h2>Iniciar Sesión</h2>
+    <h2><span>Login</span></h2>
     <?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
     <form method="POST" action="">
         <input type="text" name="usuario" placeholder="Usuario" required>
