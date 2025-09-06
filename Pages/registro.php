@@ -1,7 +1,7 @@
 <?php
 session_start();
 include 'conexion.php';
-
+//comentario vacio
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $usuario = $_POST['usuario'] ?? '';
     $password = $_POST['password'] ?? '';
