@@ -26,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
                 $_SESSION['id'] = $id;
                 $_SESSION['usuario'] = $usuario;
 
-                // Como ya no hay "tipo", mandamos siempre al mismo dashboard
                 header("Location: productos.php");
                 exit;
             } else {
