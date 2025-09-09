@@ -1,17 +1,22 @@
 <?php
 session_start();
-include 'conexion.php';
+include '../Config/conexion.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $nombre = $_POST['nombre'] ?? '';
     $usuario = $_POST['usuario'] ?? '';
     $password = $_POST['password'] ?? '';
     $password_confirm = $_POST['password_confirm'] ?? '';
+    $correo = $_POST['correo'] ?? '';
+    $telefono = $_POST['telefono'] ?? '';
 
-    if (empty($usuario) || empty($password) || empty($password_confirm)) {
+    // Validar que todos los campos estén llenos
+    if (empty($nombre) || empty($usuario) || empty($password) || empty($password_confirm) || empty($correo) || empty($telefono)) {
         $error = "Llena todos los campos.";
     } elseif ($password !== $password_confirm) {
         $error = "Las contraseñas no coinciden.";
     } else {
+        // Verificar si el usuario ya existe
         $stmt = $conn->prepare("SELECT id FROM usuarios WHERE usuario = ?");
         $stmt->bind_param("s", $usuario);
         $stmt->execute();
@@ -20,9 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($stmt->num_rows > 0) {
             $error = "El usuario ya existe.";
         } else {
+            // Hash de la contraseña antes de guardarla
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $stmt_ins = $conn->prepare("INSERT INTO usuarios (usuario, password) VALUES (?, ?)");
-            $stmt_ins->bind_param("ss", $usuario, $hashed_password);
+
+            // Preparar e insertar todos los datos en la base de datos
+            $stmt_ins = $conn->prepare("INSERT INTO usuarios (nombre, usuario, password, correo, telefono) VALUES (?, ?, ?, ?, ?)");
+            $stmt_ins->bind_param("sssss", $nombre, $usuario, $hashed_password, $correo, $telefono);
 
             if ($stmt_ins->execute()) {
                 header("Location: login.php");
@@ -122,7 +130,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <h2><span>Registro</span></h2>
     <?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
     <form method="POST" action="">
+        <input type="text" name="nombre" placeholder="Nombre" required>
         <input type="text" name="usuario" placeholder="Usuario" required>
+        <input type="email" name="correo" placeholder="Correo" required>
+        <input type="tel" name="telefono" placeholder="Teléfono" required>
         <input type="password" name="password" placeholder="Contraseña" required>
         <input type="password" name="password_confirm" placeholder="Confirmar Contraseña" required>
         <button type="submit">Registrarse</button>

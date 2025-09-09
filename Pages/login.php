@@ -4,7 +4,7 @@ ini_set('display_startup_errors',1);
 error_reporting(E_ALL);
 
 session_start();
-include 'conexion.php';
+include '../Config/conexion.php';
 
 if ($_SERVER['REQUEST_METHOD']=='POST') {
     $usuario = $_POST['usuario'] ?? '';
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD']=='POST') {
                 $_SESSION['id'] = $id;
                 $_SESSION['usuario'] = $usuario;
 
-                header("Location: productos.php");
+                header("Location: inicio.php");
                 exit;
             } else {
                 $error = "Contraseña incorrecta.";
