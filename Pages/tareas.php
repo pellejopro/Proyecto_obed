@@ -2,15 +2,42 @@
 session_start();
 include '../Config/conexion.php';
 
+// Redirigir si no hay sesión iniciada
 if (!isset($_SESSION['usuario'])) {
     header("Location: login.php");
     exit;
 }
 
 $usuario_id = $_SESSION['id'];
+$success_message = '';
+$error_message = '';
 
-// Obtener todas las tareas del usuario actual
-$sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY orden ASC";
+// Lógica para agregar una nueva tarea
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_POST['descripcion']) && isset($_POST['prioridad'])) {
+    $titulo = trim($_POST['titulo']);
+    $descripcion = trim($_POST['descripcion']);
+    $prioridad = $_POST['prioridad'];
+    $estado = 'pendiente'; 
+    $fecha_creacion = date('Y-m-d H:i:s');
+    $fecha_vencimiento = !empty($_POST['fecha_vencimiento']) ? $_POST['fecha_vencimiento'] : null;
+
+    if (empty($titulo)) {
+        $error_message = "El título de la tarea no puede estar vacío.";
+    } else {
+        $stmt = $conn->prepare("INSERT INTO tareas (usuario_id, titulo, descripcion, prioridad, estado, fecha_creacion, fecha_vencimiento) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento);
+
+        if ($stmt->execute()) {
+            $success_message = "Tarea agregada correctamente.";
+        } else {
+            $error_message = "Error al agregar la tarea: " . $stmt->error;
+        }
+        $stmt->close();
+    }
+}
+
+// Obtener todas las tareas del usuario para mostrarlas
+$sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY fecha_vencimiento ASC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
@@ -63,6 +90,10 @@ $conn->close();
             font-size: 2.5em;
             margin: 0;
         }
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
         .header-actions button {
             background-color: #f90;
             color: #1a1a1a;
@@ -78,27 +109,38 @@ $conn->close();
             background-color: #ffa500;
             transform: translateY(-2px);
         }
-        #add-task-form {
-            display: flex;
-            gap: 15px;
+        .form-container {
+            background: #222;
+            padding: 20px;
+            border-radius: 10px;
             margin-bottom: 30px;
         }
-        #add-task-form input[type="text"] {
-            flex-grow: 1;
+        .form-container h2 {
+            margin-top: 0;
+            color: #f90;
+        }
+        #add-task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #add-task-form input, #add-task-form textarea, #add-task-form select {
             padding: 15px;
             border: 2px solid #555;
             border-radius: 8px;
             background-color: #3a3a3a;
             color: #e0e0e0;
             font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
             transition: border-color 0.3s ease;
         }
-        #add-task-form input[type="text"]:focus {
+        #add-task-form input:focus, #add-task-form textarea:focus, #add-task-form select:focus {
             outline: none;
             border-color: #f90;
         }
         #add-task-form button {
-            background-color: #4CAF50; /* Green */
+            background-color: #4CAF50; 
             color: white;
             border: none;
             padding: 15px 30px;
@@ -107,25 +149,14 @@ $conn->close();
             font-weight: bold;
             cursor: pointer;
             transition: background-color 0.3s ease, transform 0.2s ease;
+            align-self: flex-end;
         }
         #add-task-form button:hover {
             background-color: #45a049;
             transform: translateY(-2px);
         }
-        .filters {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-        .filters input[type="text"], .filters select {
-            padding: 12px;
-            border: 2px solid #555;
-            border-radius: 8px;
-            background-color: #3a3a3a;
-            color: #e0e0e0;
-            font-size: 1em;
-            flex-grow: 1;
+        .task-list-container {
+            margin-top: 30px;
         }
         #task-list {
             list-style: none;
@@ -139,19 +170,8 @@ $conn->close();
             display: flex;
             justify-content: space-between;
             align-items: center;
-            cursor: grab;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            transition: background-color 0.3s ease;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-        .task-item:hover {
-            background-color: #444;
-            transform: translateY(-3px);
-        }
-        .task-item.completed {
-            background-color: #2b2b2b;
-            text-decoration: line-through;
-            opacity: 0.7;
-            border-left: 5px solid #4CAF50;
         }
         .task-details {
             flex-grow: 1;
@@ -186,7 +206,7 @@ $conn->close();
             color: #111;
         }
         .task-actions .delete-btn {
-            background-color: #f44336; /* Red */
+            background-color: #f44336; 
         }
         .task-actions .delete-btn:hover {
             background-color: #d32f2f;
@@ -197,6 +217,27 @@ $conn->close();
             cursor: pointer;
             accent-color: #f90;
         }
+        .no-tasks {
+            text-align: center;
+            color: #888;
+            margin-top: 50px;
+        }
+        .message.success {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .message.error {
+            background-color: #f44336;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -204,49 +245,55 @@ $conn->close();
         <header>
             <h1>Gestor de Tareas</h1>
             <div class="header-actions">
-                <a href="login.php"><button>Cerrar Sesión</button></a>
+                <a href="perfil.php"><button>Volver a Perfil</button></a>
             </div>
         </header>
 
-        <form id="add-task-form">
-            <input type="text" id="task-title" placeholder="Añadir una nueva tarea..." required>
-            <button type="submit">Agregar</button>
-        </form>
+        <?php if ($success_message): ?>
+            <div class="message success"><?php echo $success_message; ?></div>
+        <?php endif; ?>
+        <?php if ($error_message): ?>
+            <div class="message error"><?php echo $error_message; ?></div>
+        <?php endif; ?>
 
-        <div class="filters">
-            <input type="text" id="search-input" placeholder="Buscar tareas...">
-            <select id="filter-status">
-                <option value="all">Todos</option>
-                <option value="pendiente">Pendientes</option>
-                <option value="completada">Completadas</option>
-            </select>
-            <select id="filter-priority">
-                <option value="all">Prioridad</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-            </select>
+        <div class="form-container">
+            <h2>Crear Nueva Tarea</h2>
+            <form id="add-task-form" method="POST" action="">
+                <input type="text" name="titulo" placeholder="Título de la tarea" required>
+                <textarea name="descripcion" placeholder="Descripción de la tarea (opcional)"></textarea>
+                <select name="prioridad" required>
+                    <option value="baja">Prioridad: Baja</option>
+                    <option value="media" selected>Prioridad: Media</option>
+                    <option value="alta">Prioridad: Alta</option>
+                </select>
+                <input type="datetime-local" name="fecha_vencimiento" placeholder="Fecha de Vencimiento">
+                <button type="submit">Agregar Tarea</button>
+            </form>
         </div>
 
-        <ul id="task-list">
-            <?php foreach ($tareas as $tarea): ?>
-                <li class="task-item" data-id="<?php echo $tarea['id']; ?>" data-status="<?php echo $tarea['estado']; ?>">
-                    <div class="task-details">
-                        <span class="task-title"><?php echo htmlspecialchars($tarea['titulo']); ?></span>
-                        <p class="task-description"><?php echo htmlspecialchars($tarea['descripcion']); ?></p>
-                    </div>
-                    <div class="task-actions">
-                        <button class="edit-btn">Editar</button>
-                        <button class="delete-btn">Eliminar</button>
-                        <input type="checkbox" class="complete-checkbox" <?php echo ($tarea['estado'] == 'completada') ? 'checked' : ''; ?>>
-                    </div>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+        <div class="task-list-container">
+            <h2>Mis Tareas</h2>
+            <ul id="task-list">
+                <?php if (empty($tareas)): ?>
+                    <p class="no-tasks">No tienes tareas. ¡Hora de crear una! 🚀</p>
+                <?php else: ?>
+                    <?php foreach ($tareas as $tarea): ?>
+                        <li class="task-item <?php echo ($tarea['estado'] == 'completada') ? 'completed' : ''; ?>" data-id="<?php echo $tarea['id']; ?>">
+                            <div class="task-details">
+                                <span class="task-title"><?php echo htmlspecialchars($tarea['titulo']); ?></span>
+                                <p class="task-description"><?php echo htmlspecialchars($tarea['descripcion']); ?></p>
+                                <small><strong>Prioridad:</strong> <?php echo htmlspecialchars($tarea['prioridad']); ?> | <strong>Estado:</strong> <?php echo htmlspecialchars($tarea['estado']); ?></small>
+                            </div>
+                            <div class="task-actions">
+                                <button class="edit-btn">Editar</button>
+                                <button class="delete-btn">Eliminar</button>
+                                <input type="checkbox" class="complete-checkbox" <?php echo ($tarea['estado'] == 'completada') ? 'checked' : ''; ?>>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
+        </div>
     </div>
-
-    <script>
-        // Aquí irá tu código JavaScript para el CRUD, arrastrar y soltar, etc.
-    </script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 <?php
 $servername = "localhost";
 $username = "root";
-$password = "12345";
+$password = "root";
 $dbname = "sitio_web_2";
-$port = 3306; 
+$port = 3307; 
 
 $conn = new mysqli($servername, $username, $password, $dbname, $port);
 if ($conn->connect_error) {

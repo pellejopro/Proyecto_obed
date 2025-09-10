@@ -75,8 +75,8 @@ if (!isset($_SESSION['usuario'])) {
 <div class="container">
     <h2>¡Bienvenido, <span><?php echo htmlspecialchars($_SESSION['usuario']); ?></span>!</h2>
     <p>Has iniciado sesión correctamente.</p>
-    <p>Esta es tu página de inicio. Aquí puedes ver tu información, productos, etc.</p>
-    <a href="tareas.php"><button>Ir a mi Perfil</button></a>
+    <p>Esta es tu página de inicio. Aquí puedes ver tu información, tareas pendientes, etc.</p>
+    <a href="perfil.php"><button>Ir a mi Perfil</button></a>
     <p>¿No eres tú? <a href="login.php">Cerrar sesión</a></p>
 </div>
 </body>
