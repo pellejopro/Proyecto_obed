@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_P
     $titulo = trim($_POST['titulo']);
     $descripcion = trim($_POST['descripcion']);
     $prioridad = $_POST['prioridad'];
+    $etiquetas = isset($_POST['etiquetas']) ? trim($_POST['etiquetas']) : '';
     $estado = 'pendiente'; 
     $fecha_creacion = date('Y-m-d H:i:s');
     $fecha_vencimiento = !empty($_POST['fecha_vencimiento']) ? $_POST['fecha_vencimiento'] : null;
@@ -24,8 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_P
     if (empty($titulo)) {
         $error_message = "El título de la tarea no puede estar vacío.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO tareas (usuario_id, titulo, descripcion, prioridad, estado, fecha_creacion, fecha_vencimiento) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento);
+        $stmt = $conn->prepare("INSERT INTO tareas (usuario_id, titulo, descripcion, prioridad, estado, fecha_creacion, fecha_vencimiento, etiquetas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        // El tipo de los parámetros se actualizó a 'isssssss' para incluir 'etiquetas'
+        $stmt->bind_param("isssssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento, $etiquetas);
 
         if ($stmt->execute()) {
             $success_message = "Tarea agregada correctamente.";
@@ -267,6 +270,7 @@ $conn->close();
                     <option value="alta">Prioridad: Alta</option>
                 </select>
                 <input type="datetime-local" name="fecha_vencimiento" placeholder="Fecha de Vencimiento">
+                <input type="text" name="etiquetas" placeholder="Etiquetas (ej: trabajo, personal)">
                 <button type="submit">Agregar Tarea</button>
             </form>
         </div>
@@ -282,7 +286,13 @@ $conn->close();
                             <div class="task-details">
                                 <span class="task-title"><?php echo htmlspecialchars($tarea['titulo']); ?></span>
                                 <p class="task-description"><?php echo htmlspecialchars($tarea['descripcion']); ?></p>
-                                <small><strong>Prioridad:</strong> <?php echo htmlspecialchars($tarea['prioridad']); ?> | <strong>Estado:</strong> <?php echo htmlspecialchars($tarea['estado']); ?></small>
+                                <small>
+                                    <strong>Prioridad:</strong> <?php echo htmlspecialchars($tarea['prioridad']); ?> |
+                                    <strong>Estado:</strong> <?php echo htmlspecialchars($tarea['estado']); ?>
+                                    <?php if (!empty($tarea['etiquetas'])): ?>
+                                    | <strong>Etiquetas:</strong> <?php echo htmlspecialchars($tarea['etiquetas']); ?>
+                                    <?php endif; ?>
+                                </small>
                             </div>
                             <div class="task-actions">
                                 <button class="edit-btn">Editar</button>

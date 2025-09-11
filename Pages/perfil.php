@@ -278,6 +278,12 @@ $conn->close();
             from {opacity: 0;}
             to {opacity: 1;}
         }
+
+        .task-tags {
+            font-size: 0.8em;
+            color: #f90;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -285,7 +291,7 @@ $conn->close();
         <div class="navbar">
             <div class="navbar-brand">Gestor de Tareas</div>
             <div class="navbar-menu">
-                <a href="perfil.php">Perfil</a>
+                <a href="inicio.php">Perfil</a>
                 <a href="tareas.php">Crear Tarea</a>
                 <a href="login.php">Cerrar Sesión</a>
             </div>
@@ -308,6 +314,7 @@ $conn->close();
                     <option value="media">Prioridad: Media</option>
                     <option value="baja">Prioridad: Baja</option>
                 </select>
+                <input type="text" id="filter-tags" placeholder="Filtrar por etiquetas">
             </div>
 
             <div class="task-list-container">
@@ -316,11 +323,12 @@ $conn->close();
                         <p class="no-tasks">No tienes tareas. ¡Hora de crear una! 🚀</p>
                     <?php else: ?>
                         <?php foreach ($tareas as $tarea): ?>
-                            <li class="task-item <?php echo ($tarea['estado'] == 'completada') ? 'completed' : ''; ?>" data-id="<?php echo $tarea['id']; ?>" data-estado="<?php echo $tarea['estado']; ?>" data-prioridad="<?php echo $tarea['prioridad']; ?>" data-titulo="<?php echo htmlspecialchars($tarea['titulo']); ?>" data-descripcion="<?php echo htmlspecialchars($tarea['descripcion']); ?>">
+                            <li class="task-item <?php echo ($tarea['estado'] == 'completada') ? 'completed' : ''; ?>" data-id="<?php echo $tarea['id']; ?>" data-estado="<?php echo $tarea['estado']; ?>" data-prioridad="<?php echo $tarea['prioridad']; ?>" data-titulo="<?php echo htmlspecialchars($tarea['titulo']); ?>" data-descripcion="<?php echo htmlspecialchars($tarea['descripcion']); ?>" data-etiquetas="<?php echo htmlspecialchars($tarea['etiquetas']); ?>">
                                 <div class="task-details">
                                     <span class="task-title"><?php echo htmlspecialchars($tarea['titulo']); ?></span>
                                     <p class="task-description"><?php echo htmlspecialchars($tarea['descripcion']); ?></p>
                                     <small><strong>Estado:</strong> <?php echo htmlspecialchars($tarea['estado']); ?> | <strong>Prioridad:</strong> <?php echo htmlspecialchars($tarea['prioridad']); ?></small>
+                                    <div class="task-tags"><?php echo htmlspecialchars($tarea['etiquetas']); ?></div>
                                 </div>
                                 <div class="task-actions">
                                      <button class="edit-btn">Editar</button>
@@ -348,6 +356,7 @@ $conn->close();
             <option value="media">Prioridad: Media</option>
             <option value="alta">Prioridad: Alta</option>
           </select>
+          <input type="text" id="edit-etiquetas" placeholder="Etiquetas (separadas por comas)">
           <button type="submit">Guardar Cambios</button>
         </form>
       </div>
@@ -358,6 +367,7 @@ $conn->close();
             const searchInput = document.getElementById('search-input');
             const filterStatus = document.getElementById('filter-status');
             const filterPriority = document.getElementById('filter-priority');
+            const filterTagsInput = document.getElementById('filter-tags'); // Nuevo campo de filtro
             const taskList = document.getElementById('task-list');
             const allTasks = Array.from(taskList.getElementsByClassName('task-item'));
             const editModal = document.getElementById('editModal');
@@ -368,18 +378,21 @@ $conn->close();
                 const searchTerm = searchInput.value.toLowerCase();
                 const status = filterStatus.value;
                 const priority = filterPriority.value;
+                const filterTags = filterTagsInput.value.toLowerCase().split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 
                 allTasks.forEach(task => {
                     const taskTitle = task.getAttribute('data-titulo').toLowerCase();
                     const taskDesc = task.getAttribute('data-descripcion').toLowerCase();
                     const taskStatus = task.getAttribute('data-estado');
                     const taskPriority = task.getAttribute('data-prioridad');
+                    const taskTags = task.getAttribute('data-etiquetas').toLowerCase().split(',').map(tag => tag.trim());
 
                     const matchesSearch = taskTitle.includes(searchTerm) || taskDesc.includes(searchTerm);
                     const matchesStatus = status === 'all' || taskStatus === status;
                     const matchesPriority = priority === 'all' || taskPriority === priority;
+                    const matchesTags = filterTags.length === 0 || filterTags.some(tag => taskTags.includes(tag));
 
-                    if (matchesSearch && matchesStatus && matchesPriority) {
+                    if (matchesSearch && matchesStatus && matchesPriority && matchesTags) {
                         task.style.display = 'flex';
                     } else {
                         task.style.display = 'none';
@@ -390,6 +403,7 @@ $conn->close();
             searchInput.addEventListener('keyup', filterTasks);
             filterStatus.addEventListener('change', filterTasks);
             filterPriority.addEventListener('change', filterTasks);
+            filterTagsInput.addEventListener('keyup', filterTasks);
             
             // Lógica para los botones de acción
             taskList.addEventListener('click', async (event) => {
@@ -433,6 +447,7 @@ $conn->close();
                     document.getElementById('edit-titulo').value = taskItem.getAttribute('data-titulo');
                     document.getElementById('edit-descripcion').value = taskItem.getAttribute('data-descripcion');
                     document.getElementById('edit-prioridad').value = taskItem.getAttribute('data-prioridad');
+                    document.getElementById('edit-etiquetas').value = taskItem.getAttribute('data-etiquetas'); // Llenar el campo de etiquetas
                     editModal.style.display = 'flex';
                 }
 
@@ -484,12 +499,13 @@ $conn->close();
                 const titulo = document.getElementById('edit-titulo').value;
                 const descripcion = document.getElementById('edit-descripcion').value;
                 const prioridad = document.getElementById('edit-prioridad').value;
+                const etiquetas = document.getElementById('edit-etiquetas').value; // Obtener las etiquetas del formulario
 
                 try {
                     const response = await fetch('update_tarea.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: taskId, titulo: titulo, descripcion: descripcion, prioridad: prioridad })
+                        body: JSON.stringify({ id: taskId, titulo: titulo, descripcion: descripcion, prioridad: prioridad, etiquetas: etiquetas })
                     });
                     const data = await response.json();
                     if (data.success) {
@@ -497,9 +513,11 @@ $conn->close();
                         taskItem.querySelector('.task-title').textContent = titulo;
                         taskItem.querySelector('.task-description').textContent = descripcion;
                         taskItem.querySelector('small').innerHTML = `<strong>Estado:</strong> ${taskItem.getAttribute('data-estado')} | <strong>Prioridad:</strong> ${prioridad}`;
+                        taskItem.querySelector('.task-tags').textContent = etiquetas; // Actualizar las etiquetas mostradas
                         taskItem.setAttribute('data-titulo', titulo);
                         taskItem.setAttribute('data-descripcion', descripcion);
                         taskItem.setAttribute('data-prioridad', prioridad);
+                        taskItem.setAttribute('data-etiquetas', etiquetas); // Actualizar el atributo de datos
                         
                         editModal.style.display = 'none';
                         alert('Tarea actualizada correctamente.');
