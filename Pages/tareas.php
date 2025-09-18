@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_P
     $descripcion = trim($_POST['descripcion']);
     $prioridad = $_POST['prioridad'];
     $etiquetas = isset($_POST['etiquetas']) ? trim($_POST['etiquetas']) : '';
-    $estado = 'pendiente'; 
+    $estado = 'pendiente';
     $fecha_creacion = date('Y-m-d H:i:s');
     $fecha_vencimiento = !empty($_POST['fecha_vencimiento']) ? $_POST['fecha_vencimiento'] : null;
 
@@ -26,22 +26,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_P
         $error_message = "El título de la tarea no puede estar vacío.";
     } else {
         $stmt = $conn->prepare("INSERT INTO tareas (usuario_id, titulo, descripcion, prioridad, estado, fecha_creacion, fecha_vencimiento, etiquetas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        
-        // El tipo de los parámetros se actualizó a 'isssssss' para incluir 'etiquetas'
-        $stmt->bind_param("isssssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento, $etiquetas);
-
-        if ($stmt->execute()) {
-            $success_message = "Tarea agregada correctamente.";
+        if ($stmt === false) {
+            $error_message = "Error al preparar la consulta: " . $conn->error;
         } else {
-            $error_message = "Error al agregar la tarea: " . $stmt->error;
+            $stmt->bind_param("isssssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento, $etiquetas);
+
+            if ($stmt->execute()) {
+                $success_message = "Tarea agregada correctamente.";
+            } else {
+                $error_message = "Error al agregar la tarea: " . $stmt->error;
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 
 // Obtener todas las tareas del usuario para mostrarlas
 $sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY fecha_vencimiento ASC";
 $stmt = $conn->prepare($sql);
+if ($stmt === false) {
+    die("Error en la consulta: " . $conn->error);
+}
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -53,8 +58,30 @@ if ($result->num_rows > 0) {
     }
 }
 $stmt->close();
+
+// ----------------------------
+// Código para obtener tareas próximas a vencer y enviar notificaciones
+date_default_timezone_set('America/Argentina/Buenos_Aires'); // Ajustar zona horaria
+
+$now = date('Y-m-d H:i:s');
+$next24h = date('Y-m-d H:i:s', strtotime('+1 day'));
+
+$stmt_notif = $conn->prepare("SELECT id, titulo, fecha_vencimiento FROM tareas WHERE usuario_id = ? AND estado = 'pendiente' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento BETWEEN ? AND ?");
+$tareas_proximas = [];
+if ($stmt_notif !== false) {
+    $stmt_notif->bind_param("iss", $usuario_id, $now, $next24h);
+    $stmt_notif->execute();
+    $result_notif = $stmt_notif->get_result();
+
+    while ($row = $result_notif->fetch_assoc()) {
+        $tareas_proximas[] = $row;
+    }
+    $stmt_notif->close();
+}
+
 $conn->close();
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -305,5 +332,124 @@ $conn->close();
             </ul>
         </div>
     </div>
+
+    <script>
+        // Pasamos el arreglo PHP a JS
+        const tareasProximas = <?php echo json_encode($tareas_proximas); ?> || [];
+
+        // Función que muestra notificaciones (si el navegador lo permite)
+        function mostrarNotificaciones() {
+            if (!("Notification" in window)) {
+                console.log("Este navegador no soporta notificaciones.");
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                tareasProximas.forEach(t => {
+                    const mensaje = `⚠️ La tarea "${t.titulo}" vence el ${t.fecha_vencimiento}`;
+                    new Notification("Recordatorio de Tarea", { body: mensaje });
+                });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        tareasProximas.forEach(t => {
+                            const mensaje = `⚠️ La tarea "${t.titulo}" vence el ${t.fecha_vencimiento}`;
+                            new Notification("Recordatorio de Tarea", { body: mensaje });
+                        });
+                    }
+                });
+            }
+        }
+
+        // Pedir permiso y mostrar notificaciones si hay tareas próximas
+        window.addEventListener('load', () => {
+            if (tareasProximas.length > 0) {
+                // esperamos 1s para no mostrar notificaciones al instante y evitar popups molestos
+                setTimeout(mostrarNotificaciones, 1000);
+            }
+        });
+
+        // (Opcional) agregar listeners para botones editar/eliminar/checkbox
+        // Por ahora solo previene comportamiento por defecto y puedes implementar llamadas AJAX si querés.
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('.delete-btn')) {
+                e.preventDefault();
+                const li = e.target.closest('.task-item');
+                const id = li ? li.getAttribute('data-id') : null;
+                if (confirm('¿Eliminar esta tarea?')) {
+                    // aquí puedes hacer fetch('/Pages/delete_tarea.php', { method: 'POST', body: ... })
+                    li.remove();
+                }
+            }
+            if (e.target.matches('.edit-btn')) {
+                e.preventDefault();
+                alert('Función editar aún no implementada. Si querés, te la implemento.');
+            }
+            if (e.target.matches('.complete-checkbox')) {
+                // aquí podrías enviar el cambio de estado al servidor con fetch/AJAX
+                // por ahora mostramos un pequeño feedback visual
+                const li = e.target.closest('.task-item');
+                if (e.target.checked) li.classList.add('completed');
+                else li.classList.remove('completed');
+            }
+            document.addEventListener('click', function(e) {
+  if (e.target.matches('.complete-checkbox')) {
+    const li = e.target.closest('.task-item');
+    const tareaId = e.target.getAttribute('data-id');
+    const completado = e.target.checked ? 1 : 0;
+
+    // Cambiar clase visual
+    if (completado === 1) {
+      li.classList.add('completed');
+    } else {
+      li.classList.remove('completed');
+    }
+
+    // Enviar a PHP con fetch
+    fetch('completar_tarea.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: tareaId,
+        completado: completado
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        console.log("Tarea actualizada en la base de datos.");
+      } else {
+        console.error("Error desde el servidor:", data.error);
+      }
+    })
+    .catch(err => {
+      console.error("Error en la petición fetch:", err);
+    });
+
+    // Notificación en el navegador
+    if (completado === 1) {
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification("Tarea completada", {
+              body: "Marcaste una tarea como completada.",
+              icon: "icono.png" // opcional
+            });
+          }
+        });
+      } else {
+        new Notification("Tarea completada", {
+          body: "Marcaste una tarea como completada.",
+          icon: "icono.png"
+        });
+      }
+    }
+  }
+});
+
+        });
+    </script>
 </body>
 </html>
