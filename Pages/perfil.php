@@ -4,8 +4,8 @@ session_start();
 
 // Redirige al login si no hay sesión iniciada
 if (!isset($_SESSION['usuario'])) {
-header("Location: login.php");
-exit;
+    header("Location: login.php");
+    exit;
 }
 
 // Incluye la conexión a la base de datos
@@ -21,8 +21,8 @@ $usuario_data = $result->fetch_assoc();
 $nombre_usuario = $usuario_data['nombre'];
 $stmt->close();
 
-// Obtener todas las tareas del usuario para mostrarlas, ordenadas por fecha de vencimiento
-$sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY fecha_vencimiento ASC";
+// Obtener todas las tareas del usuario para mostrarlas, ordenadas por la columna 'posicion'
+$sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY posicion ASC, fecha_vencimiento ASC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
@@ -30,9 +30,9 @@ $result_tareas = $stmt->get_result();
 
 $tareas = [];
 if ($result_tareas->num_rows > 0) {
-while ($row = $result_tareas->fetch_assoc()) {
-$tareas[] = $row;
-}
+    while ($row = $result_tareas->fetch_assoc()) {
+        $tareas[] = $row;
+    }
 }
 $stmt->close();
 $conn->close();
@@ -43,7 +43,7 @@ $conn->close();
     <meta charset="UTF-8">
     <title>Perfil de Usuario - Gestor de Tareas</title>
     <style>
-        /* Estilos generales y tema oscuro */
+        /* Estilos generales y tema oscuro (por defecto) */
         body {
             background-color: #1a1a1a;
             font-family: 'Arial', sans-serif;
@@ -54,6 +54,7 @@ $conn->close();
             align-items: flex-start;
             min-height: 100vh;
             padding-top: 50px;
+            transition: background-color 0.3s, color 0.3s;
         }
         .container {
             max-width: 900px;
@@ -62,6 +63,97 @@ $conn->close();
             padding: 40px;
             border-radius: 15px;
             box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        
+        /* Tema Claro */
+        body.light-mode {
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        body.light-mode .container {
+            background: #ffffff;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        body.light-mode .navbar {
+            border-bottom: 2px solid #ccc;
+        }
+        body.light-mode .navbar-brand {
+            color: #3e8e41;
+        }
+        body.light-mode .navbar-menu a {
+            background-color: #e2e2e2;
+            color: #333;
+        }
+        body.light-mode .navbar-menu a:hover {
+            background-color: #3e8e41;
+            color: white;
+        }
+        body.light-mode #notification-bell {
+            color: #3e8e41;
+        }
+        body.light-mode .dropdown-content {
+            background-color: #e2e2e2;
+        }
+        body.light-mode .dropdown-content a {
+            color: #333;
+        }
+        body.light-mode .dropdown-content a:hover {
+            background-color: #ddd;
+        }
+        body.light-mode .user-greeting {
+            color: #3e8e41;
+        }
+        body.light-mode .task-management-section {
+            background: #f8f9fa;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        body.light-mode .task-management-section h2 {
+            color: #333;
+        }
+        body.light-mode .filters input[type="text"], 
+        body.light-mode .filters select,
+        body.light-mode .modal-content input, 
+        body.light-mode .modal-content textarea, 
+        body.light-mode .modal-content select {
+            border: 2px solid #ccc;
+            background-color: #ffffff;
+            color: #333;
+        }
+        body.light-mode .task-item {
+            background: #e2e2e2;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        body.light-mode .task-item.completed {
+            background-color: #c8e6c9;
+            text-decoration: none;
+            opacity: 1;
+        }
+        body.light-mode .task-description {
+            color: #555;
+        }
+        body.light-mode .task-tags {
+            color: #3e8e41;
+        }
+        body.light-mode .task-actions button {
+            background: #ddd;
+            color: #333;
+        }
+        body.light-mode .task-actions button:hover {
+            background: #ccc;
+        }
+        body.light-mode .task-actions .edit-btn { background-color: #4CAF50; color: white;}
+        body.light-mode .task-actions .edit-btn:hover { background-color: #45a049; }
+        body.light-mode .task-actions .delete-btn { background-color: #f44336; color: white; }
+        body.light-mode .task-actions .delete-btn:hover { background-color: #d32f2f; }
+        body.light-mode .task-actions input[type="checkbox"] {
+            accent-color: #3e8e41;
+        }
+        body.light-mode .modal-content {
+            background-color: #f8f9fa;
+        }
+        body.light-mode .modal-content h2 {
+            color: #3e8e41;
         }
         
         /* Navbar */
@@ -77,6 +169,7 @@ $conn->close();
             font-size: 2em;
             color: #f90;
             font-weight: bold;
+            transition: color 0.3s;
         }
         .navbar-menu {
             display: flex;
@@ -96,6 +189,19 @@ $conn->close();
             color: #1a1a1a;
         }
         
+        /* Botón de modo claro/oscuro */
+        #mode-toggle {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #e0e0e0;
+            transition: color 0.3s;
+        }
+        body.light-mode #mode-toggle {
+            color: #333;
+        }
+
         /* Mensajes flash */
         .flash-message {
             padding: 15px;
@@ -217,6 +323,7 @@ $conn->close();
             color: #e0e0e0;
             font-size: 1em;
             flex-grow: 1;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
 
         /* Lista de tareas */
@@ -235,8 +342,16 @@ $conn->close();
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s ease, box-shadow 0.3s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            cursor: grab; /* Indica que el elemento se puede arrastrar */
+        }
+        .task-item.sortable-chosen {
+            background-color: #555; /* Estilo para el elemento que se está arrastrando */
+            cursor: grabbing;
+        }
+        .task-item.sortable-ghost {
+            opacity: 0.5; /* Estilo para el fantasma que marca dónde se soltará el elemento */
         }
         .task-item.completed {
             background-color: #2b3a2c;
@@ -315,6 +430,7 @@ $conn->close();
             max-width: 500px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
             animation: fadeIn 0.3s;
+            transition: background-color 0.3s;
         }
         .modal-content h2 {
             margin-top: 0;
@@ -334,6 +450,7 @@ $conn->close();
             font-size: 1em;
             width: 100%;
             box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
         .modal-content button {
             background-color: #4CAF50;
@@ -367,6 +484,7 @@ $conn->close();
             to {opacity: 1;}
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -374,26 +492,27 @@ $conn->close();
     <?php if (isset($_SESSION['message'])): ?>
         <div class="flash-message <?php echo (isset($_SESSION['message_type']) && $_SESSION['message_type'] === 'error') ? 'flash-error' : 'flash-success'; ?>">
             <?php 
-echo htmlspecialchars($_SESSION['message']); 
-unset($_SESSION['message']);
-unset($_SESSION['message_type']);
-?>
+                echo htmlspecialchars($_SESSION['message']); 
+                unset($_SESSION['message']);
+                unset($_SESSION['message_type']);
+            ?>
         </div>
     <?php endif; ?>
 
     <div class="navbar">
         <div class="navbar-brand">Gestor de Tareas</div>
         <div class="navbar-menu">
+            <button id="mode-toggle">🌓</button>
             <div class="notifications-container">
                 <button id="notification-bell">
                     🔔 <span id="notification-count">0</span>
                 </button>
                 <div id="notification-dropdown" class="dropdown-content">
-                                        </div>
+                    </div>
             </div>
             <a href="inicio.php">Perfil</a>
             <a href="tareas.php">Crear Tarea</a>
-            <a href="logout.php">Cerrar Sesión</a>
+            <a href="login.php">Cerrar Sesión</a>
         </div>
     </div>
 
@@ -490,6 +609,31 @@ unset($_SESSION['message_type']);
         const editModal = document.getElementById('editModal');
         const closeModalBtn = document.getElementById('closeModal');
         const editForm = document.getElementById('editForm');
+        const modeToggle = document.getElementById('mode-toggle'); // Nuevo
+
+        // --- FUNCIÓN PARA CAMBIAR EL TEMA ---
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('light-mode');
+            
+            // Guardar la preferencia en localStorage
+            if (body.classList.contains('light-mode')) {
+                localStorage.setItem('theme', 'light');
+            } else {
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Cargar el tema guardado al inicio
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+            }
+        }
+        
+        loadTheme(); // Llama a la función al cargar la página
+        modeToggle.addEventListener('click', toggleTheme); // Asocia el evento al botón
 
         // NOTIFICACIONES
         const bell = document.getElementById('notification-bell');
@@ -510,9 +654,17 @@ unset($_SESSION['message_type']);
                                 const notificationItem = document.createElement('a');
                                 notificationItem.href = '#'; 
                                 notificationItem.textContent = `${tarea.titulo} (Vence el ${tarea.fecha_entrega})`;
-                                notificationItem.style.cssText = 'color: #e0e0e0; padding: 12px 16px; text-decoration: none; display: block;';
-                                notificationItem.onmouseover = () => notificationItem.style.backgroundColor = '#555';
-                                notificationItem.onmouseout = () => notificationItem.style.backgroundColor = 'transparent';
+                                notificationItem.style.cssText = 'color: inherit; padding: 12px 16px; text-decoration: none; display: block;';
+                                notificationItem.onmouseover = () => {
+                                    if (document.body.classList.contains('light-mode')) {
+                                        notificationItem.style.backgroundColor = '#ddd';
+                                    } else {
+                                        notificationItem.style.backgroundColor = '#555';
+                                    }
+                                };
+                                notificationItem.onmouseout = () => {
+                                    notificationItem.style.backgroundColor = 'transparent';
+                                };
                                 dropdown.appendChild(notificationItem);
                             });
                         } else {
@@ -607,8 +759,8 @@ unset($_SESSION['message_type']);
             if (target.classList.contains('edit-btn')) {
                 const taskData = {
                     id: taskItem.getAttribute('data-id'),
-                    titulo: taskItem.getAttribute('data-titulo'),
-                    descripcion: taskItem.getAttribute('data-descripcion'),
+                    titulo: taskItem.querySelector('.task-title').textContent,
+                    descripcion: taskItem.querySelector('.task-description').textContent,
                     fecha_vencimiento: taskItem.querySelector('p:nth-of-type(1)').textContent.replace('Vence: ', '').trim(),
                     prioridad: taskItem.getAttribute('data-prioridad'),
                     etiquetas: taskItem.getAttribute('data-etiquetas')
@@ -695,6 +847,7 @@ unset($_SESSION['message_type']);
                     taskItem.querySelector('p:nth-of-type(2)').textContent = `Prioridad: ${prioridad}`;
                     taskItem.querySelector('.task-tags').textContent = `Etiquetas: ${etiquetas}`;
                     
+                    // Actualiza los data-attributes para los filtros
                     taskItem.setAttribute('data-titulo', titulo.toLowerCase());
                     taskItem.setAttribute('data-descripcion', descripcion.toLowerCase());
                     taskItem.setAttribute('data-prioridad', prioridad);
@@ -708,6 +861,38 @@ unset($_SESSION['message_type']);
             } catch (error) {
                 console.error('Error:', error);
                 alert('Ocurrió un error al intentar actualizar la tarea.');
+            }
+        });
+
+        // --- FUNCIONALIDAD DE ARRASTRAR Y SOLTAR ---
+        new Sortable(taskList, {
+            animation: 150, // Agrega un efecto de transición suave
+            onEnd: function (evt) {
+                const newOrder = [];
+                // Obtiene el nuevo orden de los IDs de las tareas
+                taskList.querySelectorAll('.task-item').forEach(taskItem => {
+                    newOrder.push(taskItem.getAttribute('data-id'));
+                });
+
+                // Envía el nuevo orden al servidor para actualizar la base de datos
+                fetch('reordenar_tareas.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: newOrder })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Error al guardar el nuevo orden:', data.error);
+                        alert('No se pudo guardar el nuevo orden de las tareas.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión:', error);
+                    alert('Ocurrió un error al intentar guardar el orden.');
+                });
             }
         });
     });

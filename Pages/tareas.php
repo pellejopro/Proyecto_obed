@@ -26,27 +26,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['titulo']) && isset($_P
         $error_message = "El título de la tarea no puede estar vacío.";
     } else {
         $stmt = $conn->prepare("INSERT INTO tareas (usuario_id, titulo, descripcion, prioridad, estado, fecha_creacion, fecha_vencimiento, etiquetas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        if ($stmt === false) {
-            $error_message = "Error al preparar la consulta: " . $conn->error;
-        } else {
-            $stmt->bind_param("isssssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento, $etiquetas);
+        $stmt->bind_param("isssssss", $usuario_id, $titulo, $descripcion, $prioridad, $estado, $fecha_creacion, $fecha_vencimiento, $etiquetas);
 
-            if ($stmt->execute()) {
-                $success_message = "Tarea agregada correctamente.";
-            } else {
-                $error_message = "Error al agregar la tarea: " . $stmt->error;
-            }
-            $stmt->close();
+        if ($stmt->execute()) {
+            $success_message = "Tarea agregada correctamente.";
+        } else {
+            $error_message = "Error al agregar la tarea: " . $stmt->error;
         }
+        $stmt->close();
     }
 }
 
 // Obtener todas las tareas del usuario para mostrarlas
 $sql = "SELECT * FROM tareas WHERE usuario_id = ? ORDER BY fecha_vencimiento ASC";
 $stmt = $conn->prepare($sql);
-if ($stmt === false) {
-    die("Error en la consulta: " . $conn->error);
-}
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -58,65 +51,84 @@ if ($result->num_rows > 0) {
     }
 }
 $stmt->close();
-
-// ----------------------------
-// Código para obtener tareas próximas a vencer y enviar notificaciones
-date_default_timezone_set('America/Argentina/Buenos_Aires'); // Ajustar zona horaria
-
-$now = date('Y-m-d H:i:s');
-$next24h = date('Y-m-d H:i:s', strtotime('+1 day'));
-
-$stmt_notif = $conn->prepare("SELECT id, titulo, fecha_vencimiento FROM tareas WHERE usuario_id = ? AND estado = 'pendiente' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento BETWEEN ? AND ?");
-$tareas_proximas = [];
-if ($stmt_notif !== false) {
-    $stmt_notif->bind_param("iss", $usuario_id, $now, $next24h);
-    $stmt_notif->execute();
-    $result_notif = $stmt_notif->get_result();
-
-    while ($row = $result_notif->fetch_assoc()) {
-        $tareas_proximas[] = $row;
-    }
-    $stmt_notif->close();
-}
-
 $conn->close();
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Gestor de Tareas</title>
     <style>
+        /* Definición de variables CSS para el modo claro (valores por defecto) */
+        :root {
+            --color-principal: #f90;
+            --color-texto-claro: #e0e0e0;
+            --color-texto-oscuro: #1a1a1a;
+            --color-fondo-claro: #f0f2f5;
+            --color-fondo-oscuro: #121212;
+            --color-contenedor-claro: #ffffff;
+            --color-contenedor-oscuro: #1f1f1f;
+            --color-tarea-claro: #f9f9f9;
+            --color-tarea-oscuro: #333;
+            --color-borde-claro: #ddd;
+            --color-borde-oscuro: #555;
+            --color-sombra-claro: rgba(0,0,0,0.1);
+            --color-sombra-oscuro: rgba(0,0,0,0.5);
+            --color-verde: #4CAF50;
+            --color-rojo: #f44336;
+        }
+
+        /* Variables para el modo oscuro, aplicadas a la clase 'dark-mode' */
+        .dark-mode {
+            --color-principal: #ffa500;
+            --color-texto-claro: #e0e0e0;
+            --color-texto-oscuro: #e0e0e0; /* El texto principal ahora será claro */
+            --color-fondo-claro: #121212; /* El fondo principal será oscuro */
+            --color-fondo-oscuro: #2a2a2a;
+            --color-contenedor-claro: #1f1f1f;
+            --color-contenedor-oscuro: #2a2a2a;
+            --color-tarea-claro: #222;
+            --color-tarea-oscuro: #333;
+            --color-borde-claro: #3c3c3c;
+            --color-borde-oscuro: #555;
+            --color-sombra-claro: rgba(0,0,0,0.9);
+            --color-sombra-oscuro: rgba(0,0,0,0.5);
+            --color-verde: #45a049;
+            --color-rojo: #d32f2f;
+        }
+
+        /* Estilos generales usando las variables CSS */
         body {
-            background-color: #1a1a1a;
+            background-color: var(--color-fondo-claro);
             font-family: 'Arial', sans-serif;
-            color: #e0e0e0;
+            color: var(--color-texto-oscuro);
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
             padding-top: 50px;
+            transition: background-color 0.4s, color 0.4s;
         }
         .container {
             max-width: 800px;
             width: 90%;
-            background: #2a2a2a;
+            background: var(--color-contenedor-claro);
             padding: 40px;
             border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 20px var(--color-sombra-claro);
+            transition: background 0.4s, box-shadow 0.4s;
         }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
-            border-bottom: 2px solid #3c3c3c;
+            border-bottom: 2px solid var(--color-borde-claro);
             padding-bottom: 20px;
         }
         h1 {
-            color: #f90;
+            color: var(--color-principal);
             font-size: 2.5em;
             margin: 0;
         }
@@ -125,8 +137,8 @@ $conn->close();
             gap: 15px;
         }
         .header-actions button {
-            background-color: #f90;
-            color: #1a1a1a;
+            background-color: var(--color-principal);
+            color: var(--color-contenedor-claro);
             border: none;
             padding: 12px 25px;
             border-radius: 8px;
@@ -136,18 +148,19 @@ $conn->close();
             transition: background-color 0.3s ease, transform 0.2s ease;
         }
         .header-actions button:hover {
-            background-color: #ffa500;
+            background-color: var(--color-principal);
+            filter: brightness(1.2);
             transform: translateY(-2px);
         }
         .form-container {
-            background: #222;
+            background: var(--color-fondo-oscuro);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 30px;
         }
         .form-container h2 {
             margin-top: 0;
-            color: #f90;
+            color: var(--color-principal);
         }
         #add-task-form {
             display: flex;
@@ -156,10 +169,10 @@ $conn->close();
         }
         #add-task-form input, #add-task-form textarea, #add-task-form select {
             padding: 15px;
-            border: 2px solid #555;
+            border: 2px solid var(--color-borde-oscuro);
             border-radius: 8px;
-            background-color: #3a3a3a;
-            color: #e0e0e0;
+            background-color: var(--color-tarea-oscuro);
+            color: var(--color-texto-claro);
             font-size: 1em;
             width: 100%;
             box-sizing: border-box;
@@ -167,10 +180,10 @@ $conn->close();
         }
         #add-task-form input:focus, #add-task-form textarea:focus, #add-task-form select:focus {
             outline: none;
-            border-color: #f90;
+            border-color: var(--color-principal);
         }
         #add-task-form button {
-            background-color: #4CAF50; 
+            background-color: var(--color-verde);
             color: white;
             border: none;
             padding: 15px 30px;
@@ -182,7 +195,8 @@ $conn->close();
             align-self: flex-end;
         }
         #add-task-form button:hover {
-            background-color: #45a049;
+            background-color: var(--color-verde);
+            filter: brightness(0.9);
             transform: translateY(-2px);
         }
         .task-list-container {
@@ -193,7 +207,7 @@ $conn->close();
             padding: 0;
         }
         .task-item {
-            background: #333;
+            background: var(--color-tarea-oscuro);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 15px;
@@ -201,7 +215,7 @@ $conn->close();
             justify-content: space-between;
             align-items: center;
             transition: background-color 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 5px var(--color-sombra-claro);
         }
         .task-details {
             flex-grow: 1;
@@ -214,7 +228,7 @@ $conn->close();
         }
         .task-description {
             font-size: 0.9em;
-            color: #ccc;
+            color: var(--color-texto-claro);
             margin: 0;
         }
         .task-actions {
@@ -223,29 +237,30 @@ $conn->close();
             align-items: center;
         }
         .task-actions button {
-            background: #555;
+            background: var(--color-borde-oscuro);
             border: none;
-            color: #e0e0e0;
+            color: var(--color-texto-claro);
             padding: 8px 15px;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
         .task-actions button:hover {
-            background: #f90;
-            color: #111;
+            background: var(--color-principal);
+            color: var(--color-contenedor-claro);
         }
         .task-actions .delete-btn {
-            background-color: #f44336; 
+            background-color: var(--color-rojo);
         }
         .task-actions .delete-btn:hover {
-            background-color: #d32f2f;
+            background-color: var(--color-rojo);
+            filter: brightness(0.9);
         }
         .task-actions input[type="checkbox"] {
             width: 20px;
             height: 20px;
             cursor: pointer;
-            accent-color: #f90;
+            accent-color: var(--color-principal);
         }
         .no-tasks {
             text-align: center;
@@ -253,7 +268,7 @@ $conn->close();
             margin-top: 50px;
         }
         .message.success {
-            background-color: #4CAF50;
+            background-color: var(--color-verde);
             color: white;
             padding: 15px;
             border-radius: 8px;
@@ -261,7 +276,7 @@ $conn->close();
             text-align: center;
         }
         .message.error {
-            background-color: #f44336;
+            background-color: var(--color-rojo);
             color: white;
             padding: 15px;
             border-radius: 8px;
@@ -332,124 +347,32 @@ $conn->close();
             </ul>
         </div>
     </div>
-
+    
     <script>
-        // Pasamos el arreglo PHP a JS
-        const tareasProximas = <?php echo json_encode($tareas_proximas); ?> || [];
+        const body = document.body;
 
-        // Función que muestra notificaciones (si el navegador lo permite)
-        function mostrarNotificaciones() {
-            if (!("Notification" in window)) {
-                console.log("Este navegador no soporta notificaciones.");
-                return;
-            }
-
-            if (Notification.permission === 'granted') {
-                tareasProximas.forEach(t => {
-                    const mensaje = `⚠️ La tarea "${t.titulo}" vence el ${t.fecha_vencimiento}`;
-                    new Notification("Recordatorio de Tarea", { body: mensaje });
-                });
-            } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') {
-                        tareasProximas.forEach(t => {
-                            const mensaje = `⚠️ La tarea "${t.titulo}" vence el ${t.fecha_vencimiento}`;
-                            new Notification("Recordatorio de Tarea", { body: mensaje });
-                        });
-                    }
-                });
+        // Función para aplicar el tema y guardarlo en el almacenamiento local
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
             }
         }
 
-        // Pedir permiso y mostrar notificaciones si hay tareas próximas
-        window.addEventListener('load', () => {
-            if (tareasProximas.length > 0) {
-                // esperamos 1s para no mostrar notificaciones al instante y evitar popups molestos
-                setTimeout(mostrarNotificaciones, 1000);
-            }
-        });
-
-        // (Opcional) agregar listeners para botones editar/eliminar/checkbox
-        // Por ahora solo previene comportamiento por defecto y puedes implementar llamadas AJAX si querés.
-        document.addEventListener('click', function(e) {
-            if (e.target.matches('.delete-btn')) {
-                e.preventDefault();
-                const li = e.target.closest('.task-item');
-                const id = li ? li.getAttribute('data-id') : null;
-                if (confirm('¿Eliminar esta tarea?')) {
-                    // aquí puedes hacer fetch('/Pages/delete_tarea.php', { method: 'POST', body: ... })
-                    li.remove();
-                }
-            }
-            if (e.target.matches('.edit-btn')) {
-                e.preventDefault();
-                alert('Función editar aún no implementada. Si querés, te la implemento.');
-            }
-            if (e.target.matches('.complete-checkbox')) {
-                // aquí podrías enviar el cambio de estado al servidor con fetch/AJAX
-                // por ahora mostramos un pequeño feedback visual
-                const li = e.target.closest('.task-item');
-                if (e.target.checked) li.classList.add('completed');
-                else li.classList.remove('completed');
-            }
-            document.addEventListener('click', function(e) {
-  if (e.target.matches('.complete-checkbox')) {
-    const li = e.target.closest('.task-item');
-    const tareaId = e.target.getAttribute('data-id');
-    const completado = e.target.checked ? 1 : 0;
-
-    // Cambiar clase visual
-    if (completado === 1) {
-      li.classList.add('completed');
-    } else {
-      li.classList.remove('completed');
-    }
-
-    // Enviar a PHP con fetch
-    fetch('completar_tarea.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        id: tareaId,
-        completado: completado
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        console.log("Tarea actualizada en la base de datos.");
-      } else {
-        console.error("Error desde el servidor:", data.error);
-      }
-    })
-    .catch(err => {
-      console.error("Error en la petición fetch:", err);
-    });
-
-    // Notificación en el navegador
-    if (completado === 1) {
-      if (Notification.permission !== "granted") {
-        Notification.requestPermission().then(permission => {
-          if (permission === "granted") {
-            new Notification("Tarea completada", {
-              body: "Marcaste una tarea como completada.",
-              icon: "icono.png" // opcional
-            });
-          }
-        });
-      } else {
-        new Notification("Tarea completada", {
-          body: "Marcaste una tarea como completada.",
-          icon: "icono.png"
-        });
-      }
-    }
-  }
-});
-
-        });
+        // 1. Al cargar la página, comprueba si hay un tema guardado en localStorage
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            // 2. Si no hay tema guardado, usa la preferencia del sistema operativo
+            applyTheme('dark');
+        } else {
+            // 3. Si no hay preferencia del sistema ni tema guardado, usa el tema claro por defecto.
+            applyTheme('light');
+        }
     </script>
 </body>
 </html>
